@@ -1,0 +1,11 @@
+title = "GHSCD live demo gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Arquivos sem segredos reais usados na demo"
+paths = [
+  '''README\.md''',
+  '''docs/.*\.md'''
+]

@@ -1,0 +1,47 @@
+<%- include('partials/header') %>
+<h1>Tools</h1>
+<p>Ferramentas pequenas para uma demo cloud-native sem depender de banco de dados.</p>
+<section class="grid two">
+  <article class="card">
+    <h2>SHA-256</h2>
+    <form method="post" action="/tools/hash">
+      <label for="text">Texto</label>
+      <textarea id="text" name="text" rows="4" placeholder="Digite um texto para gerar hash"></textarea>
+      <button type="submit">Gerar hash</button>
+    </form>
+    <% if (hashResult) { %>
+      <pre><code><%= hashResult %></code></pre>
+    <% } %>
+  </article>
+
+  <article class="card">
+    <h2>Echo seguro</h2>
+    <form method="post" action="/tools/echo">
+      <label for="message">Mensagem</label>
+      <textarea id="message" name="message" rows="4" placeholder="Teste com <script>alert(1)</script>"></textarea>
+      <button type="submit">Enviar</button>
+    </form>
+    <% if (echoResult) { %>
+      <p class="result"><%= echoResult %></p>
+    <% } %>
+  </article>
+
+  <article class="card">
+    <h2>Carga leve</h2>
+    <form method="post" action="/tools/load">
+      <label for="iterations">Iterações</label>
+      <input id="iterations" name="iterations" type="number" value="25000" min="1000" max="250000">
+      <button type="submit">Executar</button>
+    </form>
+    <% if (loadResult) { %>
+      <p class="result"><%= loadResult %></p>
+    <% } %>
+  </article>
+
+  <article class="card danger">
+    <h2>Erro controlado</h2>
+    <p>Gera uma exceção tratada para demonstrar logs e páginas de erro.</p>
+    <a class="button danger" href="/tools/error">Gerar erro</a>
+  </article>
+</section>
+<%- include('partials/footer') %>

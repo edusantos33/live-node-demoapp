@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= appName %></title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/"><%= appName %></a>
+  <nav>
+    <a class="<%= path === '/' ? 'active' : '' %>" href="/">Home</a>
+    <a class="<%= path === '/info' ? 'active' : '' %>" href="/info">Info</a>
+    <a class="<%= path === '/monitor' ? 'active' : '' %>" href="/monitor">Monitor</a>
+    <a class="<%= path === '/tools' ? 'active' : '' %>" href="/tools">Tools</a>
+  </nav>
+</header>
+<main class="container">

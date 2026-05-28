@@ -1,0 +1,12 @@
+<%- include('partials/header') %>
+<h1>Info</h1>
+<p>Informações úteis para demo sem expor variáveis sensíveis.</p>
+<table class="table">
+  <% Object.entries(info).forEach(([key, value]) => { %>
+    <tr>
+      <th><%= key %></th>
+      <td><%= value %></td>
+    </tr>
+  <% }) %>
+</table>
+<%- include('partials/footer') %>

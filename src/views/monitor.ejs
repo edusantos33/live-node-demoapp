@@ -1,0 +1,21 @@
+<%- include('partials/header') %>
+<h1>Monitor</h1>
+<p>Métricas simples atualizadas no navegador para demonstrar health, telemetry e observabilidade básica.</p>
+<div class="metrics">
+  <div><span>Uptime</span><strong id="uptime"><%= metrics.uptimeSeconds %>s</strong></div>
+  <div><span>RSS</span><strong id="rss"><%= metrics.memory.rssMb %> MB</strong></div>
+  <div><span>Heap usada</span><strong id="heap"><%= metrics.memory.heapUsedMb %> MB</strong></div>
+  <div><span>CPU user</span><strong id="cpu"><%= metrics.cpu.userMs %> ms</strong></div>
+</div>
+<script>
+  async function refreshMetrics() {
+    const response = await fetch('/api/metrics');
+    const data = await response.json();
+    document.getElementById('uptime').textContent = `${data.uptimeSeconds}s`;
+    document.getElementById('rss').textContent = `${data.memory.rssMb} MB`;
+    document.getElementById('heap').textContent = `${data.memory.heapUsedMb} MB`;
+    document.getElementById('cpu').textContent = `${data.cpu.userMs} ms`;
+  }
+  setInterval(refreshMetrics, 3000);
+</script>
+<%- include('partials/footer') %>

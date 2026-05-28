@@ -1,0 +1,29 @@
+<%- include('partials/header') %>
+<section class="hero">
+  <p class="eyebrow">Demo para live de DevSecOps</p>
+  <h1>Uma aplicação Node.js simples, sem banco, pronta para Vercel e pipeline de segurança.</h1>
+  <p>Use esta app para demonstrar deploy, Pull Request, SAST com Bearer, SCA com OWASP Dependency-Check e secret scanning com Gitleaks.</p>
+  <div class="actions">
+    <a class="button" href="/tools">Abrir ferramentas</a>
+    <a class="button secondary" href="/api/health">Ver health check</a>
+  </div>
+</section>
+<section class="grid">
+  <% cards.forEach((card) => { %>
+    <article class="card">
+      <h2><%= card.title %></h2>
+      <p><%= card.text %></p>
+      <a href="<%= card.href %>">Abrir</a>
+    </article>
+  <% }) %>
+</section>
+<section class="callout">
+  <h2>Roteiro visual para a live</h2>
+  <ol>
+    <li>Mostre a aplicação rodando localmente.</li>
+    <li>Suba para o GitHub.</li>
+    <li>Abra um PR e mostre a pipeline de segurança.</li>
+    <li>Faça o deploy na Vercel somente depois dos checks.</li>
+  </ol>
+</section>
+<%- include('partials/footer') %>

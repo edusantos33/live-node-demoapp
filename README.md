@@ -2,8 +2,6 @@
 
 Aplicação simples em Node.js + Express + EJS para demonstração de DevSecOps/AppSec em live.
 
-Ela foi criada para substituir rapidamente uma demo que quebra no deploy porque não depende de MongoDB, Redis, Azure, APIs externas ou qualquer serviço pago.
-
 ## O que a aplicação tem
 
 - Express com EJS.

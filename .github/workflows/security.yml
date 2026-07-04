@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   security:
@@ -35,7 +36,14 @@ jobs:
       - name: Automated tests
         run: npm test
 
-      - name: Bearer SAST - block critical and high
+      - name: Setup reviewdog
+        if: github.event_name == 'pull_request'
+        uses: reviewdog/action-setup@v1
+        with:
+          reviewdog_version: latest
+
+      - name: Bearer SAST report for PR review
+        id: bearer
         uses: bearer/bearer-action@v2
         env:
           BEARER_FAIL_ON_SEVERITY: critical,high
@@ -43,6 +51,27 @@ jobs:
           path: .
           scanner: sast
           severity: critical,high
+          format: rdjson
+          output: rd.json
+          diff: ${{ github.event_name == 'pull_request' }}
+
+      - name: Run reviewdog
+        if: always() && github.event_name == 'pull_request'
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f rd.json ]; then
+            cat rd.json | reviewdog -f=rdjson -reporter=github-pr-review
+          else
+            echo "rd.json not found. Bearer may have failed before generating the report."
+          fi
+
+      - name: Upload Bearer SAST report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bearer-sast-rdjson-report
+          path: rd.json
 
       - name: OWASP Dependency-Check SCA - block high and critical CVSS
         uses: dependency-check/Dependency-Check_Action@main

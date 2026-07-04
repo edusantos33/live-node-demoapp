@@ -26,74 +26,166 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: Syntax check
+        id: lint
+        continue-on-error: true
         run: npm run lint
 
       - name: Automated tests
+        id: tests
+        continue-on-error: true
         run: npm test
 
+      - name: Prepare reports folder
+        if: always()
+        run: |
+          mkdir -p reports/bearer
+          mkdir -p reports/dependency-check
+
+      # ---------------------------------------------------------
+      # Bearer SAST - HTML report, non-blocking
+      # ---------------------------------------------------------
+      - name: Bearer SAST HTML report
+        id: bearer_html
+        if: always()
+        continue-on-error: true
+        uses: bearer/bearer-action@v2
+        with:
+          path: .
+          scanner: sast
+          severity: critical,high
+          format: html
+          output: reports/bearer/bearer-sast.html
+          exit-code: 0
+          diff: ${{ github.event_name == 'pull_request' }}
+
+      # ---------------------------------------------------------
+      # Bearer SAST - RDJSON report for Reviewdog and final gate
+      # This can fail on critical/high, but the workflow continues.
+      # ---------------------------------------------------------
+      - name: Bearer SAST RDJSON report
+        id: bearer_sast
+        if: always()
+        continue-on-error: true
+        uses: bearer/bearer-action@v2
+        env:
+          BEARER_FAIL_ON_SEVERITY: critical,high
+        with:
+          path: .
+          scanner: sast
+          severity: critical,high
+          format: rdjson
+          output: reports/bearer/rd.json
+          diff: ${{ github.event_name == 'pull_request' }}
+
       - name: Setup reviewdog
-        if: github.event_name == 'pull_request'
+        if: always() && github.event_name == 'pull_request'
         uses: reviewdog/action-setup@v1
         with:
           reviewdog_version: latest
 
-      - name: Bearer SAST report for PR review
-        id: bearer
-        uses: bearer/bearer-action@v2
-        #env:
-          #BEARER_FAIL_ON_SEVERITY: critical,high
-        with:
-          path: .
-          scanner: sast
-          #severity: critical,high
-          format: rdjson
-          output: rd.json
-          #diff: ${{ github.event_name == 'pull_request' }}
-
-      - name: Run reviewdog
-        #if: always() && github.event_name == 'pull_request'
+      - name: Run reviewdog for Bearer findings
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -f rd.json ]; then
-            cat rd.json | reviewdog -f=rdjson -reporter=github-pr-review
+          if [ -s reports/bearer/rd.json ]; then
+            cat reports/bearer/rd.json | reviewdog \
+              -f=rdjson \
+              -name="bearer-sast" \
+              -reporter=github-pr-review
           else
-            echo "rd.json not found. Bearer may have failed before generating the report."
+            echo "No Bearer RDJSON report found."
           fi
 
-      - name: Upload Bearer SAST report
+      - name: Upload Bearer SAST reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bearer-sast-rdjson-report
-          path: rd.json
+          name: bearer-sast-reports
+          path: reports/bearer
+          if-no-files-found: warn
 
-      - name: OWASP Dependency-Check SCA - block high and critical CVSS
+      # ---------------------------------------------------------
+      # OWASP Dependency-Check SCA
+      # This can fail on CVSS >= 7, but the workflow continues.
+      # ---------------------------------------------------------
+      - name: OWASP Dependency-Check SCA
+        id: dependency_check
+        if: always()
+        continue-on-error: true
         uses: dependency-check/Dependency-Check_Action@main
         with:
           project: ghscd-live-node-demoapp
           path: .
-          format: HTML
-          out: reports
+          format: ALL
+          out: reports/dependency-check
           args: >
             --failOnCVSS 7
             --enableRetired
             --scan package.json
             --scan node_modules
 
-      - name: Upload Dependency-Check report
+      - name: Upload Dependency-Check reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dependency-check-report
-          path: reports
+          name: dependency-check-reports
+          path: reports/dependency-check
+          if-no-files-found: warn
 
+      # ---------------------------------------------------------
+      # Gitleaks secret scan
+      # ---------------------------------------------------------
       - name: Gitleaks secret scan
+        id: gitleaks
+        if: always()
+        continue-on-error: true
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---------------------------------------------------------
+      # Final quality gate
+      # Only here the pipeline fails.
+      # ---------------------------------------------------------
+      - name: Final security quality gate
+        if: always()
+        run: |
+          FAILED=0
+
+          check_step() {
+            STEP_OUTCOME="$1"
+            STEP_NAME="$2"
+
+            echo "$STEP_NAME outcome: $STEP_OUTCOME"
+
+            if [ "$STEP_OUTCOME" = "failure" ]; then
+              echo "::error::$STEP_NAME failed."
+              FAILED=1
+            fi
+          }
+
+          check_step "${{ steps.lint.outcome }}" "Lint"
+          check_step "${{ steps.tests.outcome }}" "Automated tests"
+          check_step "${{ steps.bearer_sast.outcome }}" "Bearer SAST critical/high gate"
+          check_step "${{ steps.dependency_check.outcome }}" "OWASP Dependency-Check CVSS >= 7 gate"
+          check_step "${{ steps.gitleaks.outcome }}" "Gitleaks secret scan"
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "Security workflow finished with failures, but reports were generated before blocking."
+            exit 1
+          fi
+
+          echo "Security workflow finished successfully."

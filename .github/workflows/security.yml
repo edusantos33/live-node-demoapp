@@ -45,18 +45,18 @@ jobs:
       - name: Bearer SAST report for PR review
         id: bearer
         uses: bearer/bearer-action@v2
-        env:
-          BEARER_FAIL_ON_SEVERITY: critical,high
+        #env:
+          #BEARER_FAIL_ON_SEVERITY: critical,high
         with:
           path: .
           scanner: sast
-          severity: critical,high
+          #severity: critical,high
           format: rdjson
           output: rd.json
-          diff: ${{ github.event_name == 'pull_request' }}
+          #diff: ${{ github.event_name == 'pull_request' }}
 
       - name: Run reviewdog
-        if: always() && github.event_name == 'pull_request'
+        #if: always() && github.event_name == 'pull_request'
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

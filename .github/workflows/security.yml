@@ -52,8 +52,6 @@ jobs:
           format: HTML
           out: reports
           args: >
-            # --failOnCVSS 7
-            # --enableRetired
             --scan package.json
             --scan node_modules
 

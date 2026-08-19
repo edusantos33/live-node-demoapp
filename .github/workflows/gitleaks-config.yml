@@ -26,11 +26,14 @@ jobs:
             git \
             --config /repo/.gitleaks.toml \
             --redact \
+            --report-format json \
+            --report-path /repo/gitleaks-report.json \
             /repo
-      
+
       - name: Upload Gitleaks Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gitleaks-report
           path: gitleaks-report.json
+          if-no-files-found: error

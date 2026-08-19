@@ -1,0 +1,107 @@
+name: Secret Scanning - Gitleaks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ------------------------------------------------------
+      # 1. Checkout completo do repositório
+      # ------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+
+      # ------------------------------------------------------
+      # 2. Executar o Gitleaks
+      #
+      # -v             = mostra detalhes no log
+      # --redact       = não mostra o secret completo
+      # --report-path  = salva relatório JSON
+      #
+      # continue-on-error permite executar os próximos
+      # passos mesmo que sejam encontrados leaks.
+      # ------------------------------------------------------
+      - name: Gitleaks Scan
+        id: gitleaks
+        continue-on-error: true
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest \
+            git \
+            -v \
+            --config /repo/.gitleaks.toml \
+            --redact \
+            --report-format json \
+            --report-path /repo/gitleaks-report.json \
+            /repo
+
+
+      # ------------------------------------------------------
+      # 3. Mostrar resumo diretamente no GitHub Actions
+      # ------------------------------------------------------
+      - name: Show Gitleaks Summary
+        if: always()
+        run: |
+          echo "## 🔐 Gitleaks Security Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f gitleaks-report.json ]; then
+
+            COUNT=$(jq 'length' gitleaks-report.json)
+
+            echo "**Leaks encontrados: $COUNT**" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "$COUNT" -gt 0 ]; then
+
+              echo "| Regra | Arquivo | Linha | Commit |" >> "$GITHUB_STEP_SUMMARY"
+              echo "|---|---|---:|---|" >> "$GITHUB_STEP_SUMMARY"
+
+              jq -r '.[] |
+                "| \(.RuleID) | `\(.File)` | \(.StartLine) | `\(.Commit[0:8])` |"' \
+                gitleaks-report.json >> "$GITHUB_STEP_SUMMARY"
+
+            else
+              echo "✅ Nenhum secret encontrado." >> "$GITHUB_STEP_SUMMARY"
+            fi
+
+          else
+            echo "Relatório não foi gerado." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+
+      # ------------------------------------------------------
+      # 4. Salvar relatório como Artifact
+      # ------------------------------------------------------
+      - name: Upload Gitleaks Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+
+
+      # ------------------------------------------------------
+      # 5. Security Gate
+      #
+      # Só depois de gerar relatório e summary fazemos
+      # o pipeline falhar.
+      # ------------------------------------------------------
+      - name: Security Gate
+        if: steps.gitleaks.outcome == 'failure'
+        run: |
+          echo "❌ Gitleaks encontrou secrets."
+          exit 1
